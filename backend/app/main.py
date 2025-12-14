@@ -33,3 +33,9 @@ def ask(req: AskReq):
         return {"question": req.question, "sql": sql.strip(), "result": result}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+import os
+
+@app.get("/config")
+def config():
+    return {"llm_mode": os.getenv("LLM_MODE", "mock")}
