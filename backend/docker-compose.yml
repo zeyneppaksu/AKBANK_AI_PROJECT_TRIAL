@@ -1,0 +1,11 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: mockbank
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./app/schema_seed.sql:/docker-entrypoint-initdb.d/schema_seed.sql
