@@ -8,4 +8,5 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./app/schema_seed.sql:/docker-entrypoint-initdb.d/schema_seed.sql
+      - ./db/init:/docker-entrypoint-initdb.d
+      - ./db/data:/data
