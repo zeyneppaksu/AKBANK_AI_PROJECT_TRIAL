@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import "./App.css";
 
 const API_BASE = "http://localhost:8000";
 
@@ -9,71 +10,64 @@ const GOLDEN_QUESTIONS = [
   "List customers",
 ];
 
-function Table({ columns, rows }) {
+function ResultTable({ columns, rows }) {
   if (!columns?.length) return null;
 
   return (
-    <div style={{ overflowX: "auto", border: "1px solid #ddd", borderRadius: 8 }}>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr>
-            {columns.map((c) => (
-              <th
-                key={c}
-                style={{
-                  textAlign: "left",
-                  padding: "10px 12px",
-                  borderBottom: "1px solid #ddd",
-                  background: "#fafafa",
-                  fontWeight: 600,
-                }}
-              >
-                {c}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, idx) => (
-            <tr key={idx}>
-              {r.map((cell, j) => (
-                <td
-                  key={j}
-                  style={{
-                    padding: "10px 12px",
-                    borderBottom: "1px solid #eee",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {cell === null || cell === undefined ? "" : String(cell)}
-                </td>
+    <div className="card">
+      <div className="cardTitle">Result</div>
+      <div className="tableWrap">
+        <table className="tbl">
+          <thead>
+            <tr>
+              {columns.map((c) => (
+                <th key={c}>{c}</th>
               ))}
             </tr>
-          ))}
-          {!rows?.length && (
-            <tr>
-              <td colSpan={columns.length} style={{ padding: 12, color: "#666" }}>
-                No rows returned.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows?.length ? (
+              rows.map((r, i) => (
+                <tr key={i}>
+                  {r.map((cell, j) => (
+                    <td key={j}>{cell === null || cell === undefined ? "" : String(cell)}</td>
+                  ))}
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={columns.length} className="emptyCell">
+                  No rows returned.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
 
 export default function App() {
-  const [question, setQuestion] = useState(GOLDEN_QUESTIONS[0]);
+  const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
+
   const [sql, setSql] = useState("");
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [ms, setMs] = useState(null);
 
+  // “presentation” controls (UI only)
+  const [dbUser, setDbUser] = useState("LP61205");
+  const [dbPass, setDbPass] = useState("••••••••••••");
+  const [connOk, setConnOk] = useState(true);
+
+  const [showSQL, setShowSQL] = useState(true);
+  const [showTable, setShowTable] = useState(true);
+
   const canAsk = useMemo(() => question.trim().length > 0 && !loading, [question, loading]);
 
-  async function onAsk(qOverride) {
+  async function ask(qOverride) {
     const q = (qOverride ?? question).trim();
     if (!q) return;
 
@@ -95,149 +89,187 @@ export default function App() {
       const t1 = performance.now();
       setMs(Math.round(t1 - t0));
 
-      if (!res.ok) {
-        throw new Error(data?.detail || "Request failed");
-      }
+      if (!res.ok) throw new Error(data?.detail || "Request failed");
 
       setSql(data.sql || "");
       setResult(data.result || null);
     } catch (e) {
       const t1 = performance.now();
       setMs(Math.round(t1 - t0));
-      setError(e.message || "Unknown error");
+      const msg = (e.message || "Unknown error");
+      if (msg.includes("Unknown LLM_MODE")) {
+        setError("Model yapılandırması hatalı. Lütfen sistem yöneticisiyle iletişime geçin.");
+      } else {
+        setError(msg);
+      }
+
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div
-      style={{
-        maxWidth: 980,
-        margin: "40px auto",
-        padding: "0 16px",
-        fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
-      }}
-    >
-      <h1 style={{ margin: 0, fontSize: 26 }}>Mock NL → SQL Demo</h1>
-      <p style={{ marginTop: 8, color: "#555" }}>
-        Type a question. The backend generates SQL, validates it (read-only), runs it on synthetic Postgres,
-        and returns a table.
-      </p>
+    <div className="layout">
+      {/* Sidebar */}
+      <aside className="sidebar">
+        <div className="brand">
+          <div className="brandLogo">AKBANK</div>
+        </div>
 
-      {/* Golden questions */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
-        {GOLDEN_QUESTIONS.map((q) => (
+        <div className="nav">
+          <div className="navItem active">🏠 AnaSayfa</div>
+          <div className="navItem">📘 Eğitim</div>
+          <div className="navItem">🗂️ Eğitilen Veriler</div>
+        </div>
+
+        <details className="panel" open>
+          <summary>Kullanıcı DB Bilgileri</summary>
+
+          <label className="label">Database Username</label>
+          <input className="input" value={dbUser} onChange={(e) => setDbUser(e.target.value)} />
+
+          <label className="label">Database Şifre</label>
+          <div className="row">
+            <input
+              className="input"
+              value={dbPass}
+              onChange={(e) => setDbPass(e.target.value)}
+              type="password"
+            />
+            <button className="iconBtn" title="show/hide" onClick={() => {}}>
+              👁️
+            </button>
+          </div>
+
           <button
-            key={q}
+            className="btn"
             onClick={() => {
-              setQuestion(q);
-              onAsk(q); // optional: auto-run when clicked
+              // mock “update connection”
+              setConnOk(true);
             }}
-            disabled={loading}
-            style={{
-              padding: "8px 10px",
-              borderRadius: 999,
-              border: "1px solid #ddd",
-              background: "#fff",
-              cursor: loading ? "not-allowed" : "pointer",
-              fontSize: 13,
-            }}
-            title="Click to run this test"
           >
-            {q}
+            Güncelle
           </button>
-        ))}
-      </div>
 
-      {/* Input row */}
-      <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 14 }}>
-        <input
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          placeholder='Ask something like: "Show accounts in Istanbul"'
-          style={{
-            flex: 1,
-            padding: "12px 12px",
-            borderRadius: 10,
-            border: "1px solid #ccc",
-            fontSize: 14,
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && canAsk) onAsk();
-          }}
-        />
+          <div className={`status ${connOk ? "ok" : "bad"}`}>
+            {connOk ? "Bağlantı Başarılı." : "Bağlantı Hatası."}
+          </div>
+        </details>
+
+        <details className="panel" open>
+          <summary>Çıktı Seçenekleri</summary>
+
+          <label className="check">
+            <input type="checkbox" checked={showSQL} onChange={(e) => setShowSQL(e.target.checked)} />
+            SQL Sorgusunu Göster
+          </label>
+
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={showTable}
+              onChange={(e) => setShowTable(e.target.checked)}
+            />
+            Tabloyu Göster
+          </label>
+        </details>
+
+        <details className="panel">
+          <summary>Örnek Sorular</summary>
+          <div className="chips">
+            {GOLDEN_QUESTIONS.map((q) => (
+              <button
+                key={q}
+                className="chip"
+                disabled={loading}
+                onClick={() => {
+                  setQuestion(q);
+                  ask(q);
+                }}
+                title="Click to run"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        </details>
+
         <button
-          onClick={() => onAsk()}
-          disabled={!canAsk}
-          style={{
-            padding: "12px 14px",
-            borderRadius: 10,
-            border: "1px solid #111",
-            background: loading ? "#eee" : "#111",
-            color: loading ? "#111" : "#fff",
-            cursor: canAsk ? "pointer" : "not-allowed",
-            fontWeight: 600,
-            minWidth: 92,
+          className="btn ghost"
+          onClick={() => {
+            setQuestion("");
+            setSql("");
+            setResult(null);
+            setError("");
+            setMs(null);
           }}
         >
-          {loading ? "Asking..." : "Ask"}
+          ✏️ Yeni Sohbet
         </button>
-      </div>
 
-      {/* Latency */}
-      {ms !== null && (
-        <div style={{ marginTop: 10, color: "#555", fontSize: 13 }}>
-          Response time: <b>{ms} ms</b>
+        <div className="smallNote">
+          Backend: <span className="mono">{API_BASE}</span>
         </div>
-      )}
+      </aside>
 
-      {/* Error */}
-      {error && (
-        <div
-          style={{
-            marginTop: 14,
-            padding: 12,
-            borderRadius: 10,
-            background: "#ffecec",
-            border: "1px solid #ffb3b3",
-            color: "#7a0000",
-          }}
-        >
-          {error}
+      {/* Main */}
+      <main className="main">
+        <div className="topbar">
+          <div className="topbarRight">
+            <button className="topIcon" title="Accessibility">♿</button>
+            <button className="topIcon" title="Stop" onClick={() => {}}>Stop</button>
+            <button className="topIcon" title="Menu">⋮</button>
+          </div>
         </div>
-      )}
 
-      {/* SQL */}
-      {sql && (
-        <div style={{ marginTop: 18 }}>
-          <div style={{ fontWeight: 700, marginBottom: 8 }}>Generated SQL</div>
-          <pre
-            style={{
-              margin: 0,
-              padding: 12,
-              borderRadius: 10,
-              background: "#f6f6f6",
-              border: "1px solid #e6e6e6",
-              overflowX: "auto",
+        <div className="hero">
+          <h1>Doğal Dil ile Veri Analizi</h1>
+          <p>Sorularınızı Sorgulara Dönüştürün</p>
+        </div>
+
+        {/* “Chat bubble” area like slides */}
+        <div className="content">
+          {(loading || sql || result || error) && (
+            <div className="bubble">
+              <div className="bubbleIcon">🤖</div>
+              <div className="bubbleText">
+                <div className="bubbleQ">{question || "—"}</div>
+                {loading && <div className="muted">SQL üretiliyor…</div>}
+                {ms !== null && <div className="muted">Yanıt süresi: <b>{ms} ms</b></div>}
+              </div>
+            </div>
+          )}
+
+          {error && <div className="error">{error}</div>}
+
+          {showSQL && sql && (
+            <div className="card">
+              <div className="cardTitle">Generated SQL</div>
+              <pre className="code">{sql}</pre>
+            </div>
+          )}
+
+          {showTable && result && (
+            <ResultTable columns={result.columns} rows={result.rows} />
+          )}
+        </div>
+
+        {/* Bottom prompt bar */}
+        <div className="promptBar">
+          <input
+            className="promptInput"
+            placeholder="Veriniz ile ilgili bir soru sorun"
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && canAsk) ask();
             }}
-          >
-            {sql}
-          </pre>
+          />
+          <button className="sendBtn" disabled={!canAsk} onClick={() => ask()} title="Send">
+            ➤
+          </button>
         </div>
-      )}
-
-      {/* Result */}
-      {result && (
-        <div style={{ marginTop: 18 }}>
-          <div style={{ fontWeight: 700, marginBottom: 8 }}>Result</div>
-          <Table columns={result.columns} rows={result.rows} />
-        </div>
-      )}
-
-      <div style={{ marginTop: 28, color: "#666", fontSize: 13 }}>
-        Backend: {API_BASE}
-      </div>
+      </main>
     </div>
   );
 }
