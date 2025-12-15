@@ -1,6 +1,6 @@
 # backend/app/llm/router.py
 import os
-from . import mock, ollama, vllm
+from . import mock, ollama, vllm, hf
 from ..schema_context import get_schema_context
 
 def generate_sql(question: str) -> str:
@@ -19,5 +19,8 @@ def generate_sql(question: str) -> str:
 
     if mode == "vllm":
         return vllm.generate_sql(question, schema_context=schema)
-
+    
+    if mode == "hf":
+        return hf.generate_sql(question, schema_text=schema)
+    
     raise ValueError(f"Unknown LLM_MODE='{mode}'. Use: mock | ollama | vllm")
