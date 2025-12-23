@@ -65,9 +65,10 @@ def _load():
     # NOTE: use dtype= (torch_dtype is deprecated in some stacks)
     _MODEL = AutoModelForCausalLM.from_pretrained(
         model_id,
-        dtype=dtype,
+        torch_dtype=dtype,
         device_map="auto" if _DEVICE == "cuda" else None,
     )
+
     if _DEVICE == "cpu":
         _MODEL.to(_DEVICE)
 
@@ -91,6 +92,24 @@ def _extract_sql(text: str) -> str:
 
     return text
 
+def _apply_limit(sql: str, question: str, default_limit: int = 50) -> str:
+    s = sql.strip().rstrip(";")
+
+    # If user says "top N" (top 5, top 10, etc.), force LIMIT N
+    m = re.search(r"\btop\s+(\d+)\b", question, flags=re.IGNORECASE)
+    if m:
+        n = int(m.group(1))
+        if re.search(r"\bLIMIT\s+\d+\b", s, flags=re.IGNORECASE):
+            s = re.sub(r"\bLIMIT\s+\d+\b", f"LIMIT {n}", s, flags=re.IGNORECASE)
+        else:
+            s = f"{s} LIMIT {n}"
+        return s + ";"
+
+    # Otherwise ensure there's SOME limit
+    if not re.search(r"\bLIMIT\b", s, flags=re.IGNORECASE):
+        s = f"{s} LIMIT {default_limit}"
+    return s + ";"
+
 def _build_prompt(schema_text: str, question: str) -> str:
     user_content = (
         f"{SYSTEM_PROMPT}\n"
@@ -112,6 +131,8 @@ def _build_prompt(schema_text: str, question: str) -> str:
 
 def generate_sql(question: str, schema_text: str) -> str:
     _load()
+    print("Torch CUDA available:", torch.cuda.is_available())
+    print("Model device:", next(_MODEL.parameters()).device)
 
     prompt = _build_prompt(schema_text, question)
     inputs = _TOKENIZER(prompt, return_tensors="pt")
@@ -134,5 +155,5 @@ def generate_sql(question: str, schema_text: str) -> str:
     if not sql:
         # Helpful for debugging: you can temporarily log `decoded` in router/main
         raise ValueError(f"HF model did not return SELECT/WITH SQL. Raw output: {decoded[:300]}")
-
+    sql = _apply_limit(sql, question)
     return sql
