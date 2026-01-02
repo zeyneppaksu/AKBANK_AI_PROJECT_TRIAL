@@ -9,3 +9,4 @@ sqlparse==0.5.1
 transformers>=4.41,<4.46
 huggingface-hub>=0.24,<0.26
 accelerate>=0.26.0
+google-genai

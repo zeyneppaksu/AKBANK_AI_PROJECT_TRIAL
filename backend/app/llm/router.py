@@ -1,14 +1,13 @@
 # backend/app/llm/router.py
 import os
-from . import mock, ollama, vllm, hf
+from . import mock, ollama, vllm, hf, gemini
 from ..schema_context import get_schema_context
 
 def generate_sql(question: str) -> str:
     mode = os.getenv("LLM_MODE", "mock").strip().lower()
 
-    # only real LLMs need schema injected; mock can ignore
     schema = None
-    if mode in ("ollama", "vllm"):
+    if mode != "mock":
         schema = get_schema_context()
 
     if mode == "mock":
@@ -19,8 +18,11 @@ def generate_sql(question: str) -> str:
 
     if mode == "vllm":
         return vllm.generate_sql(question, schema_context=schema)
-    
+
     if mode == "hf":
         return hf.generate_sql(question, schema_text=schema)
-    
-    raise ValueError(f"Unknown LLM_MODE='{mode}'. Use: mock | ollama | vllm")
+
+    if mode == "gemini":
+        return gemini.generate_sql(question, schema_text=schema)
+
+    raise ValueError(f"Unknown LLM_MODE='{mode}'. Use: mock | ollama | vllm | hf | gemini")
